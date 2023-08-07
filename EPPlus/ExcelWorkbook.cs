@@ -248,6 +248,41 @@ namespace OfficeOpenXml
 					else
 					{
 						ExcelAddress addr = new ExcelAddress(fullAddress, _package, null);
+						if (addr._fromRow <= 0 && fullAddress.IndexOf("#REF!", StringComparison.OrdinalIgnoreCase) < 0) // Address is not valid, add as a formula instead
+						{
+							double value;
+							range = new ExcelRangeBase(this, nameWorksheet, elem.GetAttribute("name"), true);
+							if (nameWorksheet == null)
+							{
+								namedRange = _names.Add(elem.GetAttribute("name"), range);
+							}
+							else
+							{
+								namedRange = nameWorksheet.Names.Add(elem.GetAttribute("name"), range);
+							}
+
+							if (Utils.ConvertUtil._invariantCompareInfo.IsPrefix(fullAddress, "\"")) //String value
+							{
+								namedRange.NameValue = fullAddress.Substring(1, fullAddress.Length - 2);
+							}
+							else if (double.TryParse(fullAddress, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+							{
+								namedRange.NameValue = value;
+							}
+							else
+							{
+								//if (addressType == ExcelAddressBase.AddressType.ExternalAddress || addressType == ExcelAddressBase.AddressType.ExternalName)
+								//{
+								//    var r = new ExcelAddress(fullAddress);
+								//    namedRange.NameFormula = '\'[' + r._wb
+								//}
+								//else
+								//{
+								namedRange.NameFormula = fullAddress;
+								//}
+							}
+						}
+						else
 						if (localSheetID > -1)
 						{
 							if (string.IsNullOrEmpty(addr._ws))
@@ -261,8 +296,19 @@ namespace OfficeOpenXml
 						}
 						else
 						{
+							//var ws = Worksheets[addr._ws];
+							//namedRange = _names.Add(elem.GetAttribute("name"), new ExcelRangeBase(this, ws, fullAddress, false));
+
 							var ws = Worksheets[addr._ws];
-							namedRange = _names.Add(elem.GetAttribute("name"), new ExcelRangeBase(this, ws, fullAddress, false));
+							if (ws == null)
+							{
+								namedRange = _names.AddFormula(elem.GetAttribute("name"), fullAddress);
+							}
+							else
+							{
+								//var addressRange = CreateRangeForName(ws, fullAddress, out bool allowRelativeAddress);
+								namedRange = _names.Add(elem.GetAttribute("name"), new ExcelRangeBase(this, ws, fullAddress, false));
+							}
 						}
 					}
 					if (elem.GetAttribute("hidden") == "1" && namedRange != null) namedRange.IsNameHidden = true;
